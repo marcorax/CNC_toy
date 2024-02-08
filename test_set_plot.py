@@ -8,8 +8,57 @@ from PyQt5.QtGui import QImage, QImageWriter
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from pyqtgraph import PlotWidget, setConfigOptions, mkPen
+from PIL import Image, ImageOps
 import pyqtgraph.exporters
 import imageio
+
+class pulsating_image():
+    def __init__(self,image_path,row,col,column_span=1,row_span=1,amplitude=50.,frequency=1,offset = 0.,background = 'white'):
+        ##transform image to numpy array
+        image = Image.open(image_path)
+        # self.height,self.width = image.shape[:2]
+        self._row = row
+        self._column = col
+        self._rowspan = row_span
+        self._column_span = column_span
+        # Convert the image to a NumPy array
+        self.pil_image = image
+        self.image_array = np.array(image)
+        self.plot = win.addPlot(row=self._row,col=self._column,colspan=self._column_span,rowspan=self._rowspan)
+       # self.plot.setFixedSize(self.base_size,self.base_size)
+        self.image = pg.ImageItem()
+        self.plot.addItem(self.image)
+        # self.image.setImage(np.transpose(self.image_array,(1,0,2)))
+        self.image.setImage(self.image_array)
+        self.background = background
+        rotation_angle = 45  # Specify the rotation angle in degrees
+
+
+        # Hide the axes
+        self.plot.hideAxis('left')
+        self.plot.hideAxis('bottom')
+
+        self.amplitude = amplitude  # Pulsating amplitude
+        self.frequency = frequency  # Pulsating frequency
+        self.offset = offset
+        self.phase = 0  # Initial phase
+    def update(self):
+        # Generate a pulsating intensity
+        if self.amplitude != 0.:
+            size_factor = self.offset + self.amplitude * np.sin(2 * np.pi * self.frequency * self.phase)
+            padded_image = ImageOps.expand(self.pil_image, border=int(200*size_factor), fill=self.background)
+        else:
+            padded_image = self.pil_image
+        # Convert NumPy array to QImage
+        self.image.setImage(np.array(padded_image))
+        # # Convert NumPy array to QImage
+        # qt_image = pg.ImageItem(final_image)
+        #
+        # # Update the image in the pixmap item
+        # self.pixmap_item.setPixmap(pg.QtGui.QPixmap.fromImage(qt_image))
+
+        # Update the phase for the next iteration
+        self.phase += 0.05
 class image():
     def __init__(self,image_path,row,col,column_span=1,row_span=1,rotation_angle=0):
         ##transform image to numpy array
@@ -26,7 +75,6 @@ class image():
         self.plot.addItem(self.image)
         # self.image.setImage(np.transpose(self.image_array,(1,0,2)))
         self.image.setImage(self.image_array)
-        rotation_angle = 45  # Specify the rotation angle in degrees
 
 
         # Hide the axes
@@ -87,7 +135,7 @@ class plot():
         # self.line.setData(x=self._current_x,y=self._current_y)
 save_f = "Save/"
 freq = 2000
-fps = 10
+fps = 50
 skip_frames = 1
 samples = np.load(save_f + "vibr_time.npy")
 data = np.load(save_f + "vibr.npy")
@@ -97,7 +145,7 @@ max_spike = np.load(save_f + "max_spikes.npy")
 targets = np.load(save_f + "targets.npy")
 
 app = QApplication(sys.argv)
-win = pg.GraphicsLayoutWidget(show=True)
+win = pg.GraphicsLayoutWidget(show=True,size=(1920,1080))
 win.setWindowTitle('PyQtGraph Animation Example')
 win.setBackground(None)
 pg.setConfigOption('background', '#CCDADD')
@@ -111,7 +159,7 @@ spk_rec_hid_events = np.where(spk_rec_hid[:,0,:])
 lif1 = plot(x=spk_rec_hid_events[0]/freq,y=spk_rec_hid_events[1], row=0, col = 1, rowspan=3,title = 'L1',plottype='scatter',yticks=[],xrange=[0,samples.max()],color=['#3B4A52'],xlabel='Time (s)')
 
 chip = image('neuronova_chip.png',row=0,col=2,rotation_angle=90)
-
+#logo = pulsating_image('neuronova_logo.png',row=0,col=2,amplitude=0,frequency=2,offset=0.05,background='white')
 spk_rec_events = np.where(spk_rec[:,0,:])
 lif2 = plot(x=spk_rec_events[0]/freq,y=spk_rec_events[1], row=1, col = 2, rowspan=1,title = 'L2',plottype='scatter',yticks=[],xrange=[0,samples.max()],color=['#3B4A52'],xlabel='Time (s)')
 #load integrate
@@ -164,6 +212,7 @@ def update_plot():
     energy.update(samples[t])
     bandwidth.update(samples[t])
     accuracy.update(samples[t])
+    #chip.update()
     t += skip_frames
     print(t)
     # global y_x,x_x,y_y,x_y
@@ -180,8 +229,10 @@ def update_plot():
     # Capture the current state of the window as an image
     # Capture the current state of the window as an image
     exporter = pg.exporters.ImageExporter(win.scene())
-    exporter.parameters()['width'] = 1920
-    exporter.parameters()['height'] = 1080
+
+    width = 1920
+    exporter.parameters()['width'] = width
+    exporter.parameters()['height'] = width/2.5
     exporter.parameters()['antialias'] = False
     exporter.parameters()['background'] = '#CCDADD'
     pg.setConfigOption('foreground', 'k')
@@ -209,6 +260,9 @@ def update_plot():
         w = iio.get_writer('my_video.mp4', format='FFMPEG', mode='I', fps=fps)
         for filename in listfiles:
             w.append_data(imageio.imread(filename))
+        w2 = iio.get_writer('my_video.gif', format='GIF', mode='I')
+        for filename in listfiles:
+            w2.append_data(imageio.imread(filename))
         w.close()
         # writer = imageio.get_writer('test.fig', fps=fps)
         # for filename in listfiles:
