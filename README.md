@@ -8,4 +8,4 @@ Paper https://doi.org/10.1016/j.procir.2022.04.022<br />
 Repo for the dataset https://github.com/boschresearch/CNC_Machining<br /> 
 Once downloaded, put the dataset folder in the same folder of CNC_toy.<br /> 
 
-
+![Sim](./result.gif)
